@@ -335,7 +335,7 @@ function buildEvents(){
      return {raw:e,start:s,end:en,timed:timed,title:title,i:i};
    });
 }
-function lOk2_(unused){return true}
+function lOkTime(t){return /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(t).trim())}
 function preview(){
   var evs=buildEvents(),t=$("pTab");
   var h="<thead><tr><th>Date</th><th>Subject</th><th>Code</th><th>Dienst</th><th>Start</th><th>End</th><th>Title</th></tr></thead><tbody>";
@@ -361,8 +361,8 @@ $("go").onclick=function(){
     L.push("DTSTAMP:"+now);
     if(e.timed){L.push("DTSTART:"+dtl(e.start));L.push("DTEND:"+dtl(e.end))}
     else{L.push("DTSTART;VALUE=DATE:"+ymd(e.start));L.push("DTEND;VALUE=DATE:"+ymd(e.end))}
-     L.push("SUMMARY:"+esc(e.title+" (Onder voorbehoud "+genStamp()+")"));
-    L.push("DESCRIPTION:"+esc("Dienst: "+e.raw.code+(legBy(e.raw.code)?" ("+legBy(e.raw.code).desc+")":"")+"\nSubject: "+e.raw.subject));
+     L.push("SUMMARY:"+esc(e.title));
+    L.push("DESCRIPTION:"+esc("Dienst: "+e.raw.code+(legBy(e.raw.code)?" ("+legBy(e.raw.code).desc+")":"")+"\nSubject: "+e.raw.subject+"\nOnder voorbehoud "+genStamp()));
     L.push("END:VEVENT");
   });
   L.push("END:VCALENDAR");
@@ -374,7 +374,7 @@ $("go").onclick=function(){
   $("done").classList.remove("hidden");
   $("done").innerHTML="Downloaded <b>"+a.download+"</b> with <b>"+evs.length+"</b> events.";
 };
-function genStamp(){var d=new Date();return ""+pad(d.getDate())+pad(d.getMonth()+1)+d.getFullYear();}
+function genStamp(){var d=new Date();return ""+pad(d.getDate())+"-"+pad(d.getMonth()+1)+"-"+d.getFullYear();}
 function utcNow(d){return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+"T"+pad(d.getUTCHours())+pad(d.getUTCMinutes())+pad(d.getUTCSeconds())+"Z"}
 renderLegend();
 })();
