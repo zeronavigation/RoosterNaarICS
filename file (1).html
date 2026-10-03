@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rooster 2026 → ICS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--p:#2563EB;--s:#64748B;--b:#E2E8F0;--ok:#16A34A;--w:#B45309}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#F8FAFC;color:#0f172a}
+.wrap{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--s);margin:0 0 24px}
+.card{background:#fff;border:1px solid var(--b);border-radius:10px;padding:20px;margin-bottom:16px}
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.n{min-width:24px;height:24px;line-height:24px;text-align:center;background:var(--p);color:#fff;border-radius:50%;font-size:13px;font-weight:700}
+.sh h2{font-size:18px;margin:0}
+.d{color:var(--s);margin:0 0 12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:4px;flex:1;min-width:170px}
+label{font-weight:600;font-size:13px}
+select,input,button{font:inherit}
+select,input{padding:8px 10px;border:1px solid var(--b);border-radius:6px;width:100%;background:#fff}
+.chip input{width:auto}
+button{cursor:pointer;border:1px solid transparent;border-radius:6px;padding:8px 16px}
+.b1{background:var(--p);color:#fff;font-weight:600}
+.b1:disabled{background:#93c5fd;cursor:not-allowed}
+.b2{background:#fff;border-color:var(--b);color:#334155}
+.bs{padding:4px 10px;font-size:12px}
+.drop{border:2px dashed #94a3b8;border-radius:10px;padding:32px;text-align:center;color:var(--s);cursor:pointer}
+.drop.drag{border-color:var(--p);background:#eff6ff;color:var(--p)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--b);font-weight:600}
+td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
+.scroll{max-height:300px;overflow:auto;border:1px solid var(--b);border-radius:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--b);border-radius:6px;padding:6px 10px}
+.chip small{color:var(--s)}
+.swrap{position:relative;max-width:420px}
+.plist{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--b);border-radius:6px;max-height:220px;overflow:auto;z-index:10;box-shadow:0 4px 12px rgba(15,23,42,.08)}
+.plist div{padding:8px 10px;cursor:pointer}
+.plist div:hover{background:#eff6ff}
+.plist .all{border-bottom:1px solid var(--b);font-weight:600}
+.msg{border-radius:6px;padding:10px 14px;margin-top:10px}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.warn{background:#fffbeb;border:1px solid #fde68a;color:var(--w)}
+.okm{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.hidden{display:none!important}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px}
+.stat{border:1px solid var(--b);border-radius:8px;padding:8px 12px}
+.stat b{display:block;font-size:18px}
+.stat span{color:var(--s);font-size:12px}
+footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--b);color:var(--s);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Rooster 2026 → ICS</h1>
+<p class="sub">Built for the fixed <b>Rooster 2026</b> layout: subjects in column A, dates from column C (1 January) onward, shift legend at the bottom. Everything runs locally.</p>
+
+<section class="card">
+  <div class="sh"><span class="n">1</span><h2>Load rooster</h2></div>
+  <div class="drop" id="drop"><b>Drag &amp; drop</b> or <b>click</b> — .xlsx</div>
+  <input type="file" id="file" accept=".xlsx,.xls" style="display:none">
+  <div class="row" style="margin-top:12px">
+    <div class="f" style="max-width:180px"><label for="year">Year of the rooster</label><input type="number" id="year" value="2026" min="2020" max="2040"></div>
+    <div class="f" style="flex:0"><button class="b1" id="parseBtn">Parse grid</button></div>
+  </div>
+  <div id="err" class="msg err hidden"></div>
+  <div id="info" class="msg okm hidden"></div>
+</section>
+
+<section class="card hidden" id="s2">
+  <div class="sh"><span class="n">2</span><h2>Subject</h2></div>
+  <div class="swrap"><input type="text" id="subIn" placeholder="Type a name or leave empty for all…" autocomplete="off">
+  <div class="plist hidden" id="subList"></div></div>
+</section>
+
+<section class="card hidden" id="s3">
+  <div class="sh"><span class="n">3</span><h2>Period</h2></div>
+  <div class="row">
+    <div class="f" style="max-width:200px"><label>Mode</label>
+      <select id="mode"><option value="months">Months in advance (from today)</option><option value="explicit">Explicit from → until</option><option value="all">Whole rooster</option></select></div>
+    <div class="f" style="max-width:160px"><label for="mon">Months ahead</label><input type="number" id="mon" value="12" min="1" max="48"></div>
+    <div class="f" style="max-width:170px"><label for="dFrom">From</label><input type="date" id="dFrom"></div>
+    <div class="f" style="max-width:170px"><label for="dTo">Until</label><input type="date" id="dTo"></div>
+  </div>
+  <div id="win" class="msg okm hidden"></div>
+</section>
+
+<section class="card hidden" id="s4">
+  <div class="sh"><span class="n">4</span><h2>Codes</h2></div>
+  <p class="d">From the legend (Dienst/Start/Eind) plus codes found in the grid. Codes without a time export as all-day events. Legend is editable.</p>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button class="b2 bs" id="cAll">Select all</button><button class="b2 bs" id="cNone">Select none</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="scroll" style="margin-top:12px;max-height:240px"><table id="legTab"></table></div>
+  <div id="legWarn" class="msg warn hidden"></div>
+</section>
+
+<section class="card hidden" id="s5">
+  <div class="sh"><span class="n">5</span><h2>Preview &amp; export</h2></div>
+  <div class="row">
+    <div class="f" style="max-width:280px"><label for="calName">Calendar name</label><input type="text" id="calName" value="Dienstplan"></div>
+    <div class="f"><label for="tpl">Title template ({code} {desc} {subject} {date})</label><input type="text" id="tpl" value="{desc}"></div>
+    <div class="f" style="flex:0"><button class="b1" id="go">Download .ics</button></div>
+  </div>
+  <div class="scroll" style="margin-top:12px"><table id="pTab"></table></div>
+  <div class="stats" id="stats"></div>
+  <div id="done" class="msg okm hidden"></div>
+</section>
+
+<footer>v2.1 · Missing rooster codes (IC, VERLOF, INTRO, …) are auto-added as all-day.</footer>
+</div>
+<script>
+(function(){"use strict";
+var $=function(i){return document.getElementById(i);};
+var DEFAULT_LEGEND=[
+ {code:"D9D",desc:"Dagdienst",start:"07:30",end:"17:30"},
+ {code:"D6A",desc:"Weekend dag",start:"09:00",end:"21:00"},
+ {code:"AA1",desc:"Dag lang AIOS",start:"12:30",end:"21:30"},
+ {code:"AA2",desc:"Avonddienst ANIOS",start:"16:00",end:"23:00"},
+ {code:"NN1",desc:"Weekend nacht",start:"21:00",end:"09:00"},
+ {code:"NN2",desc:"Week nacht",start:"21:30",end:"08:00"},
+ {code:"GD",desc:"Geen dienst",start:"",end:""},
+ {code:"Co",desc:"Compensatie",start:"",end:""},
+ {code:"RV",desc:"Vaste parttime dag",start:"",end:""},
+ {code:"CC3",desc:"Cursus",start:"",end:""},
+ {code:"VV1",desc:"Vakantie",start:"",end:""},
+ {code:"HHX",desc:"Ouderschapsverlof",start:"",end:""},
+ {code:"IC",desc:"Intensive care",start:"",end:""},
+ {code:"I/D9D",desc:"IC / dagdienst combi",start:"",end:""},
+ {code:"INTRO",desc:"Introductie",start:"",end:""},
+ {code:"VERLOF",desc:"Verlof",start:"",end:""},
+ {code:"Skireis",desc:"Skireis",start:"",end:""}
+];
+var legend=JSON.parse(JSON.stringify(DEFAULT_LEGEND));
+var S={hdr:null,subjects:[],events:[],subject:"",sel:new Set(),skipped:0};
+var MO=["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+function pad(n){return(n<10?"0":"")+n}
+function esc(s){return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r\n|\n|\r/g,"\\n")}
+function ymd(d){return ""+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())}
+function dtl(d){return ymd(d)+"T"+pad(d.getHours())+pad(d.getMinutes())+"00"}
+function ds(x){return new Date(x.getFullYear(),x.getMonth(),x.getDate())}
+function u32(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(16)}
+function fold(l){var o=[],s=l;while(s.length>75){o.push(s.slice(0,75));s=" "+s.slice(75)}o.push(s);return o.join("\r\n")}
+function legBy(c){c=String(c).toUpperCase();for(var i=0;i<legend.length;i++)if(legend[i].code.toUpperCase()===c)return legend[i];return null}
+
+/* ---------- 1: parse fixed layout ---------- */
+var dz=$("drop"),fi=$("file");
+dz.onclick=function(){fi.click()};
+dz.ondragover=function(e){e.preventDefault();dz.classList.add("drag")};
+dz.ondragleave=function(){dz.classList.remove("drag")};
+dz.ondrop=function(e){e.preventDefault();dz.classList.remove("drag");if(e.dataTransfer.files.length)handle(e.dataTransfer.files[0])};
+fi.onchange=function(){if(fi.files.length)handle(fi.files[0])};
+var wb=null;
+function handle(f){
+  var e=$("err");e.classList.add("hidden");
+  if(typeof XLSX==="undefined"){e.textContent="SheetJS failed to load from the CDN — check your connection and reload.";e.classList.remove("hidden");return}
+  var r=new FileReader();
+  r.onload=function(ev){try{wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});$("parseBtn").click()}catch(x){e.textContent="Parse error: "+x.message;e.classList.remove("hidden")}};
+  r.readAsArrayBuffer(f);
+}
+$("parseBtn").onclick=function(){
+  var e=$("err");e.classList.add("hidden");
+  if(!wb){e.textContent="Load a file first.";e.classList.remove("hidden");return}
+  var ws=wb.Sheets[wb.SheetNames[0]];
+  var aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  var year=parseInt($("year").value,10)||2026;
+  var nr=aoa.length,nc=aoa[0].length;
+  /* calendar columns: start col 2 (0-based) = 1 Jan; day numbers on the day-row.
+     Find the day-number row: the row containing 1,2,3,4,… starting at col 2. */
+  var dayRow=-1;
+  for(var r=0;r<20;r++){
+    if(aoa[r]&&aoa[r][2]===1&&aoa[r][3]===2){dayRow=r;break}
+  }
+  if(dayRow<0){e.textContent="Day-number row (1,2,3… from col C) not found — is this the Rooster layout?";e.classList.remove("hidden");return}
+  var wdRow=dayRow+1;
+  /* subjects: col 0 from below header rows until the summary block ("Dag A(N)IOS") */
+  var subjects=[],subjRow0=-1;
+  for(var r2=dayRow+1;r2<nr;r2++){
+    var v=aoa[r2][0];
+    if(v==null)continue;
+    var s=String(v).trim();
+    if(s==="ASSISTENT")continue;
+    if(s==="Dag A(N)IOS")break;
+    if(subjects.indexOf(s)<0&&s!=="Dienst"){subjects.push(s);if(subjRow0<0)subjRow0=r2}
+  }
+  /* dates: walk columns from 2; day number resets → next month; stop at non-number */
+  var cols=[],m=0,prevDay=0;
+  for(var c=2;c<nc;c++){
+    var dv=aoa[dayRow][c];
+    if(dv==null||typeof dv!=="number")break;
+    if(prevDay&&dv<prevDay)m++;
+    if(m>11)break;
+    cols.push({col:c,date:new Date(year,m,dv),day:dv,month:m});
+    prevDay=dv;
+  }
+  /* grid → flat event list */
+  var events=[],skipped=0;var extraCodes={};
+  for(var r3=subjRow0;r3<nr;r3++){
+    var subj=aoa[r3][0];
+    if(subj==null)continue;
+    subj=String(subj).trim();
+    if(subj==="Dag A(N)IOS")break;
+    for(var c2=0;c2<cols.length;c2++){
+      var k=aoa[r3][cols[c2].col];
+      if(k==null||k==="")continue;
+      k=String(k).trim();
+      if(!k)continue;
+      if(/^\d+([.,]\d+)?$/.test(k)){skipped++;continue}   /* totals/validation digits */
+      if(!legBy(k)&&!extraCodes[k]){extraCodes[k]=1;legend.push({code:k,desc:"(auto: in rooster, no time)",start:"",end:""})}
+      events.push({date:cols[c2].date,subject:subj,code:k});
+    }
+  }
+  S.subjects=subjects;S.events=events;S.skipped=skipped;
+  var inf=$("info");inf.classList.remove("hidden");
+  inf.innerHTML="Parsed <b>"+cols.length+"</b> day-columns ("+MO[cols[0].month]+" "+cols[0].day+" – "+MO[cols[cols.length-1].month]+" "+cols[cols.length-1].day+", "+year+"), <b>"+subjects.length+"</b> subjects, <b>"+events.length+"</b> code cells. New codes auto-added to legend: <b>"+Object.keys(extraCodes).join(", ")+"</b>. Rows skipped (pure numbers): "+skipped+".";
+  function dayof(a){return a.day}
+  $("s2").classList.remove("hidden");$("s3").classList.remove("hidden");$("s4").classList.remove("hidden");$("s5").classList.remove("hidden");
+  fillSubjects();
+};
+
+/* ---------- 2: subject ---------- */
+function fillSubjects(){
+  var set={};S.events.forEach(function(e){set[e.subject]=1});
+  S.subjects=Object.keys(set).sort(function(a,b){return a.localeCompare(b)});
+  $("subIn").value=S.subject||"";
+}
+function renderList(q){
+  var box=$("subList");box.innerHTML="";
+  var a=document.createElement("div");a.className="all";a.textContent="All subjects";
+  a.onmousedown=function(e){e.preventDefault();pick("")};box.appendChild(a);
+  var f=(q||"").toLowerCase();
+  S.subjects.filter(function(s){return !f||s.toLowerCase().indexOf(f)>-1}).slice(0,80)
+   .forEach(function(s){var d=document.createElement("div");d.textContent=s;d.onmousedown=function(e){e.preventDefault();pick(s)};box.appendChild(d)});
+}
+function pick(v){S.subject=v;$("subIn").value=v;$("subList").classList.add("hidden");run()}
+$("subIn").onfocus=function(){renderList(this.value);$("subList").classList.remove("hidden")};
+$("subIn").oninput=function(){S.subject=this.value;renderList(this.value);$("subList").classList.remove("hidden")};
+$("subIn").onblur=function(){setTimeout(function(){$("subList").classList.add("hidden")},180)};
+
+/* ---------- 3: period ---------- */
+$("mode").onchange=function(){
+  $("mon").disabled=$("mode").value!=="months";
+  $("dFrom").disabled=$("dTo").disabled=$("mode").value!=="explicit";
+  run();
+};
+$("mon").onchange=$("dFrom").onchange=$("dTo").onchange=$("year").onchange=run;
+$("year").onchange=run;
+function windowOf(){
+  var md=$("mode").value;
+  if(md==="all")return {from:null,to:null};
+  if(md==="months"){
+    var n=Math.max(1,Math.min(48,parseInt($("mon").value,10)||12));$("mon").value=n;
+    var f=new Date();return {from:ds(f),to:new Date(f.getFullYear(),f.getMonth()+n,f.getDate())};
+  }
+  return {from:$("dFrom").value?new Date($("dFrom").value+"T00:00"):null,to:$("dTo").value?new Date($("dTo").value+"T00:00"):null};
+}
+
+/* ---------- 4: legend + codes ---------- */
+function renderLegend(){
+  var t=$("legTab"),h="<thead><tr><th style='width:90px'>Dienst</th><th>Description</th><th style='width:100px'>Start</th><th style='width:100px'>Eind</th><th></th></tr></thead><tbody>";
+  legend.forEach(function(e,i){
+    h+="<tr><td><input type='text' value='"+e.code.replace(/'/g,"&apos;")+"' data-i='"+i+"' data-f='code'></td>"+
+       "<td><input type='text' value='"+String(e.desc).replace(/'/g,"&apos;")+"' data-i='"+i+"' data-f='desc'></td>"+
+       "<td><input type='time' value='"+e.start+"' data-i='"+i+"' data-f='start'></td>"+
+       "<td><input type='time' value='"+e.end+"' data-i='"+i+"' data-f='end'></td>"+
+       "<td><button class='b2 bs' data-del='"+i+"'>✕</button></td></tr>";
+  });
+  t.innerHTML=h+"</tbody>";
+  t.querySelectorAll("input").forEach(function(inp){inp.onchange=function(){var e=legend[+inp.dataset.i];e[inp.dataset.f]=inp.value;e.code||(legend.splice(legend.indexOf(e),1));renderCodes();run()}});
+  t.querySelectorAll("button[data-del]").forEach(function(b){b.onclick=function(){legend.splice(+b.dataset.del,1);renderLegend();run()}});
+  var n=legend.filter(function(e){return e.start&&(!lOkTime(e.start)||!lOkTime(e.end))}).length;
+  $("legWarn").classList.toggle("hidden",!n);
+  if(n)$("legWarn").textContent="Code(s) with a start but invalid/missing end time — overnight shifts need Eind < Start handled as next-day, which the export does automatically.";
+}
+function lOkTime(t){return /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(t).trim())}
+
+/* ---------- run: filter + codes + preview ---------- */
+function run(){
+  var w=windowOf(),c0=ds(new Date());
+  if($("mode").value==="months")$("win").classList.remove("hidden"),$("win").textContent="Window: "+ymd(w.from)+" → "+ymd(w.to);
+  else $("win").classList.add("hidden");
+  var tab=$("legTab");
+  if(tab.querySelector("input")){/* harvest current legend inputs */tab.querySelectorAll("input").forEach(function(inp){legend[+inp.dataset.i][inp.dataset.f]=inp.value})}
+  S.matched=S.events.filter(function(e){
+    if(S.subject&&e.subject.toLowerCase()!==S.subject.toLowerCase())return false;
+    var t=ds(e.date).getTime();
+    if(w.from&&t<w.from.getTime())return false;
+    if(w.to&&t>w.to.getTime())return false;
+    return true;
+  });
+  var counts={};S.matched.forEach(function(e){counts[e.code]=(counts[e.code]||0)+1});
+  var list=Object.keys(counts).sort(function(a,b){return a.localeCompare(b)});
+  var box=$("chips");var prev=S.sel;S.sel=new Set();box.innerHTML="";
+  list.forEach(function(c){
+    var l=legBy(c),lab=document.createElement("label");lab.className="chip";
+    var cb=document.createElement("input");cb.type="checkbox";cb.value=c;cb.checked=(!prev? true : prev.has(c));
+    if(cb.checked)S.sel.add(c);
+    cb.onchange=function(){cb.checked?S.sel.add(c):S.sel.delete(c);preview()};
+    lab.appendChild(cb);
+    var sp=document.createElement("span");
+    sp.innerHTML="<b>"+esc(c)+"</b>"+(l&&l.desc?" <small>"+esc(l.desc)+(l.start?" "+l.start+"–"+l.end:" · all-day")+"</small>":"")+" <small>("+counts[c]+")</small>";
+    lab.appendChild(sp);box.appendChild(lab);
+  });
+  $("cAll").onclick=function(){box.querySelectorAll("input").forEach(function(cb){cb.checked=true;S.sel.add(cb.value)});preview()};
+  $("cNone").onclick=function(){box.querySelectorAll("input").forEach(function(cb){cb.checked=false});S.sel.clear();preview()};
+  preview();
+}
+function buildEvents(){
+  return S.matched.filter(function(e){return S.sel.has(e.code)})
+   .sort(function(a,b){return a.date-b.date||a.subject.localeCompare(b.subject)})
+   .map(function(e,i){
+     var l=legBy(e.code),timed=!!(l&&l.start&&lOkTime(l.start));
+     var s=ds(e.date),en;
+     if(timed){
+       var a=l.start.split(":"),b=l.end.split(":");
+       s.setHours(+a[0],+a[1],0,0);
+       en=ds(e.date);en.setHours(+b[0],+b[1],0,0);
+       if(en<=s)en.setDate(en.getDate()+1);
+     }else en=new Date(ds(e.date).getTime()+864e5);
+     var tpl=$("tpl").value||"{desc}";
+     var title=tpl
+       .replace(/\{code\}/g,e.code)
+       .replace(/\{desc\}/g,l?(l.desc||""):"")
+       .replace(/\{subject\}/g,e.subject)
+       .replace(/\{date\}/g,ymd(e.date))
+       .replace(/\s*[—–-]\s*$/,"")
+       .replace(/^\s*[—–-]\s*/,"")
+       .replace(/\s{2,}/g," ")
+       .trim();
+     return {raw:e,start:s,end:en,timed:timed,title:title,i:i};
+   });
+}
+function lOk2_(unused){return true}
+function preview(){
+  var evs=buildEvents(),t=$("pTab");
+  var h="<thead><tr><th>Date</th><th>Subject</th><th>Code</th><th>Dienst</th><th>Start</th><th>End</th><th>Title</th></tr></thead><tbody>";
+  evs.slice(0,400).forEach(function(e){
+    h+="<tr><td>"+ymd(e.raw.date)+"</td><td>"+esc(e.raw.subject)+"</td><td><b>"+esc(e.raw.code)+"</b></td><td>"+esc((legBy(e.raw.code)||{}).desc||"")+"</td><td>"+(e.timed?dtl(e.start).replace("T"," "):ymd(e.start)+" (all-day)")+"</td><td>"+(e.timed?dtl(e.end).replace("T"," "):ymd(e.end))+"</td><td>"+esc(e.title)+"</td></tr>";
+  });
+  if(!evs.length)h+="<tr><td colspan='7' style='color:var(--s)'>No events selected.</td></tr>";
+  t.innerHTML=h+"</tbody>";
+  $("stats").innerHTML="<div class='stat'><b>"+evs.length+"</b><span>events to export</span></div><div class='stat'><b>"+S.matched.length+"</b><span>matched cells</span></div><div class='stat'><b>"+(S.subject||"all")+"</b><span>subject</span></div>";
+  $("go").disabled=!evs.length;
+}
+
+/* ---------- export ---------- */
+$("go").onclick=function(){
+  var evs=buildEvents();if(!evs.length)return;
+  var L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//rooster2026ics//EN","CALSCALE:GREGORIAN"];
+  var cn=$("calName").value.trim()||"Dienstplan";
+  L.push("X-WR-CALNAME:"+cn);L.push("X-WR-TIMEZONE:Europe/Amsterdam");
+  var now=utcNow(new Date());
+  evs.forEach(function(e){
+    L.push("BEGIN:VEVENT");
+    L.push("UID:"+u32(ymd(e.raw.date)+"|"+e.raw.subject+"|"+e.raw.code)+"-"+e.i+"@rooster2026ics");
+    L.push("DTSTAMP:"+now);
+    if(e.timed){L.push("DTSTART:"+dtl(e.start));L.push("DTEND:"+dtl(e.end))}
+    else{L.push("DTSTART;VALUE=DATE:"+ymd(e.start));L.push("DTEND;VALUE=DATE:"+ymd(e.end))}
+     L.push("SUMMARY:"+esc(e.title+" (Onder voorbehoud "+genStamp()+")"));
+    L.push("DESCRIPTION:"+esc("Dienst: "+e.raw.code+(legBy(e.raw.code)?" ("+legBy(e.raw.code).desc+")":"")+"\nSubject: "+e.raw.subject));
+    L.push("END:VEVENT");
+  });
+  L.push("END:VCALENDAR");
+  var blob=new Blob([L.map(fold).join("\r\n")+"\r\n"],{type:"text/calendar;charset=utf-8"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=(cn).replace(/[^\w\-]+/g,"_")+"_"+(S.subject||"all")+".ics";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+  $("done").classList.remove("hidden");
+  $("done").innerHTML="Downloaded <b>"+a.download+"</b> with <b>"+evs.length+"</b> events.";
+};
+function genStamp(){var d=new Date();return ""+pad(d.getDate())+pad(d.getMonth()+1)+d.getFullYear();}
+function utcNow(d){return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+"T"+pad(d.getUTCHours())+pad(d.getUTCMinutes())+pad(d.getUTCSeconds())+"Z"}
+renderLegend();
+})();
+</script>
+</body>
+</html>
